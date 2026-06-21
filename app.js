@@ -335,8 +335,22 @@ function updateRestockField(itemId, field, val){
   const row = restockBatch.find(r => r.itemId === itemId);
   if(!row) return;
   row[field] = val;
-  renderRestockBatchList();
+  renderRestockPreview(itemId);
   renderActionBarRestock();
+}
+
+function renderRestockPreview(itemId){
+  const el = document.getElementById('restockPrev_'+itemId);
+  if(!el) return;
+  const row = restockBatch.find(r => r.itemId === itemId);
+  const it = findItem(itemId);
+  if(!row || !it){ el.innerHTML=''; return; }
+  const qty = parseFloat(row.qty);
+  const total = parseFloat(row.totalBayar);
+  const validCalc = qty > 0 && total >= 0 && !isNaN(qty) && !isNaN(total);
+  if(!validCalc){ el.innerHTML=''; return; }
+  const modalBaru = total/qty;
+  el.innerHTML = `Modal satuan: ${fmtRp(modalBaru)} / pcs ${it.modalSatuan ? '(sebelumnya '+fmtRp(it.modalSatuan)+')' : ''}`;
 }
 
 function renderRestockPickerList(){
@@ -363,10 +377,6 @@ function renderRestockBatchList(){
   }
   wrap.innerHTML = restockBatch.map(row => {
     const it = findItem(row.itemId);
-    const qty = parseFloat(row.qty);
-    const total = parseFloat(row.totalBayar);
-    const validCalc = qty > 0 && total >= 0 && !isNaN(qty) && !isNaN(total);
-    const modalBaru = validCalc ? (total/qty) : null;
     return `
     <div class="batch-row">
       <div class="batch-row-head">
@@ -383,9 +393,10 @@ function renderRestockBatchList(){
           <input type="number" inputmode="numeric" placeholder="0" value="${row.totalBayar}" oninput="updateRestockField('${it.id}','totalBayar',this.value)"/>
         </div>
       </div>
-      ${modalBaru!==null ? `<div class="calc-preview">Modal satuan: ${fmtRp(modalBaru)} / pcs ${it.modalSatuan ? '(sebelumnya '+fmtRp(it.modalSatuan)+')' : ''}</div>` : ''}
+      <div class="calc-preview" id="restockPrev_${it.id}"></div>
     </div>`;
   }).join('');
+  restockBatch.forEach(row => renderRestockPreview(row.itemId));
 }
 
 function renderActionBarRestock(){
