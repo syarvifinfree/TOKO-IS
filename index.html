@@ -343,10 +343,96 @@ select{appearance:none;-webkit-appearance:none;
 
 .section-gap{margin-top:18px;}
 .tiny-link{font-size:12px;color:var(--accent);cursor:pointer;font-weight:600;}
+
+/* dual metric grid */
+.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+.metric{
+  background:linear-gradient(160deg,var(--surface2),var(--surface));
+  border:1px solid var(--border);border-radius:16px;padding:16px 14px;position:relative;overflow:hidden;
+}
+.metric .lbl{font-size:11.5px;color:var(--text2);font-weight:600;margin-bottom:5px;}
+.metric .val{font-family:var(--mono);font-size:21px;font-weight:700;letter-spacing:-0.02em;}
+.metric .sub{font-size:10.5px;color:var(--text3);margin-top:4px;}
+.metric.accent .val{color:var(--accent);}
+
+/* warning badge + incomplete card */
+.badge-warn{
+  font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;
+  padding:2px 6px;border-radius:5px;background:var(--warning-dim);color:var(--warning);flex-shrink:0;
+}
+.badge-ok{
+  font-size:11px;font-weight:700;color:var(--success);flex-shrink:0;
+}
+.alert-card{
+  background:var(--danger-dim);border:1px solid var(--danger);border-radius:14px;
+  padding:14px 16px;margin-bottom:12px;
+}
+.alert-card.warn{background:var(--warning-dim);border-color:var(--warning);}
+.alert-card .t{font-size:13.5px;font-weight:700;margin-bottom:3px;}
+.alert-card .s{font-size:12px;color:var(--text2);}
+.alert-card.warn .t{color:var(--warning);}
+.alert-card.danger-tone .t{color:var(--danger);}
+
+/* inline action buttons in tx rows */
+.inline-actions{display:flex;gap:8px;margin-top:6px;}
+.mini-btn{
+  font-size:11.5px;font-weight:600;padding:5px 10px;border-radius:7px;cursor:pointer;
+  background:var(--surface3);border:1px solid var(--border);color:var(--text2);
+}
+.mini-btn.danger{color:var(--danger);border-color:var(--danger-dim);}
+.mini-btn.accent{color:var(--accent);border-color:var(--accent2);}
+
+/* generic modal dialog */
+.dialog{
+  background:var(--surface);border:1px solid var(--border);border-radius:18px;
+  padding:20px;width:100%;max-width:360px;max-height:85vh;overflow-y:auto;
+}
+.dialog h3{font-size:16px;margin-bottom:4px;}
+.dialog .dsub{font-size:12.5px;color:var(--text2);margin-bottom:16px;}
+.dialog-actions{display:flex;gap:10px;margin-top:18px;}
+.dialog-actions .btn{flex:1;}
+
+/* progress pill */
+.progress-pill{
+  display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+  color:var(--text2);background:var(--surface2);border:1px solid var(--border);
+  padding:6px 12px;border-radius:20px;margin-bottom:12px;
+}
+.progress-pill b{color:var(--accent);font-family:var(--mono);}
+
+.offline-banner{
+  background:var(--warning-dim);border:1px solid var(--warning);color:var(--warning);
+  font-size:12px;font-weight:600;padding:8px 14px;text-align:center;
+}
+.row-done{opacity:.5;}
+.config-input{
+  width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);
+  border-radius:10px;padding:11px 12px;font-size:13px;font-family:var(--mono);margin-bottom:10px;
+  word-break:break-all;
+}
+.config-input:focus{outline:none;border-color:var(--accent);}
 </style>
 </head>
 <body>
 <div id="app">
+
+  <!-- CONFIG / MASTER KEY SETUP -->
+  <div id="configOverlay" class="modal-overlay hidden">
+    <div class="pin-screen" style="max-width:340px;text-align:left;">
+      <div style="text-align:center;"><div class="brand-mark" style="margin:0 auto 14px;">IS</div></div>
+      <h2 style="text-align:center;">Sambungin Penyimpanan</h2>
+      <p style="text-align:center;">Tempel <b>Access Key</b> JSONBin lo (cuma sekali per HP/laptop). Key gak disimpen di internet, cuma di alat ini.</p>
+      <input id="cfgKey" class="config-input" placeholder="Tempel Access/Master Key di sini..."/>
+      <div id="cfgAdvanced" class="hidden">
+        <p style="font-size:11.5px;margin:6px 0;">Kalau lo udah punya data di HP lain, tempel Bin ID-nya biar datanya nyambung (opsional):</p>
+        <input id="cfgBinItems" class="config-input" placeholder="Bin ID Items (opsional)"/>
+        <input id="cfgBinTx" class="config-input" placeholder="Bin ID Transaksi (opsional)"/>
+      </div>
+      <div class="tiny-link" id="cfgToggleAdv" style="margin-bottom:12px;">+ Sambungin ke data yang udah ada</div>
+      <button class="btn btn-primary" id="cfgSubmit">Sambungin</button>
+      <div class="pin-err" id="cfgErr"></div>
+    </div>
+  </div>
 
   <!-- PIN LOCK -->
   <div id="pinOverlay" class="modal-overlay hidden">
@@ -361,6 +447,7 @@ select{appearance:none;-webkit-appearance:none;
   </div>
 
   <div id="mainWrap" class="hidden">
+    <div id="offlineBanner" class="offline-banner hidden">⚠ Mode offline — perubahan disimpan di HP, nanti otomatis sync</div>
     <div class="topbar">
       <div class="topbar-row">
         <div class="brand">
@@ -390,6 +477,7 @@ select{appearance:none;-webkit-appearance:none;
   </div>
 
   <div id="toastHost"></div>
+  <div id="modalHost"></div>
 </div>
 
 <script src="data.js"></script>

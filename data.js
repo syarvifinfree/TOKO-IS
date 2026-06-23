@@ -1,10 +1,15 @@
 // ===== CONFIG =====
-const MK = '$2a$10$27kPGVF/AiprhGJmtAKEt.ha8En9/Vr6kKYSKaTv06LdqQS/sbkfe';
+// Master/Access Key TIDAK disimpan di sini lagi (biar gak kebuka di repo publik).
+// Key diisi lewat layar setup & disimpan lokal di tiap device.
 const API = 'https://api.jsonbin.io/v3/b';
 const PIN = '8888';
+const LS_KEY = 'stokis_access_key';
 const LS_BIN_ITEMS = 'stokis_bin_items_id';
 const LS_BIN_TX = 'stokis_bin_tx_id';
 const LS_AUTH = 'stokis_auth_ok';
+const LS_CACHE_ITEMS = 'stokis_cache_items';
+const LS_CACHE_TX = 'stokis_cache_tx';
+const LS_PENDING = 'stokis_pending_sync';
 
 const KATEGORI_LIST = ['MINUMAN','ROKOK','BAHAN','MAKANAN'];
 
