@@ -1,4 +1,4 @@
-const CACHE_NAME = 'stokis-v1';
+const CACHE_NAME = 'stokis-v3';
 const ASSETS = [
   './index.html',
   './app.js',
