@@ -1,9 +1,14 @@
 // ===== STATE =====
 let items = [];
-let txLog = [];           // includes restock, opname, retur, payment
-let ACCESS_KEY = localStorage.getItem(LS_KEY) || null;
-let BIN_ITEMS = localStorage.getItem(LS_BIN_ITEMS) || null;
-let BIN_TX = localStorage.getItem(LS_BIN_TX) || null;
+let txLog = [];
+// Baked values selalu jadi default — kalau sudah ada BAKED_*, pakai itu langsung
+let ACCESS_KEY = (typeof BAKED_KEY !== 'undefined' && BAKED_KEY) ? BAKED_KEY : (localStorage.getItem(LS_KEY) || null);
+let BIN_ITEMS  = (typeof BAKED_BIN_ITEMS !== 'undefined' && BAKED_BIN_ITEMS) ? BAKED_BIN_ITEMS : (localStorage.getItem(LS_BIN_ITEMS) || null);
+let BIN_TX     = (typeof BAKED_BIN_TX !== 'undefined' && BAKED_BIN_TX) ? BAKED_BIN_TX : (localStorage.getItem(LS_BIN_TX) || null);
+// Simpan ke localStorage biar offline cache tetap nyambung ke bin yang bener
+if(ACCESS_KEY) localStorage.setItem(LS_KEY, ACCESS_KEY);
+if(BIN_ITEMS)  localStorage.setItem(LS_BIN_ITEMS, BIN_ITEMS);
+if(BIN_TX)     localStorage.setItem(LS_BIN_TX, BIN_TX);
 let currentTab = 'dashboard';
 let saveTimer = null;
 
@@ -315,8 +320,7 @@ function onPinKey(k){
 function unlockApp(){
   document.getElementById('pinOverlay').classList.add('hidden');
   document.getElementById('mainWrap').classList.remove('hidden');
-  if(!ACCESS_KEY){ document.getElementById('configOverlay').classList.remove('hidden'); }
-  else { boot(); }
+  boot();
 }
 
 // ===== INIT =====
