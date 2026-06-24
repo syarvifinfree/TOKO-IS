@@ -1,36 +1,13 @@
-const CACHE_NAME = 'stokis-v4';
-const ASSETS = [
-  './index.html',
-  './app.js',
-  './data.js',
-  './manifest.json',
-  './icons/icon-192.png',
-  './icons/icon-512.png'
-];
+// Service worker - TIDAK cache file app (biar update selalu kebaca)
+// Data offline ditangani lewat localStorage di app.js
 
-self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
-  );
-  self.skipWaiting();
-});
-
+self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => {
-  e.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
-  );
+  // Hapus semua cache lama
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))));
   self.clients.claim();
 });
-
+// Semua request langsung ke network, tidak dicache
 self.addEventListener('fetch', (e) => {
-  // Never cache JSONBin API calls - always fetch fresh
-  if (e.request.url.includes('jsonbin.io')) {
-    e.respondWith(fetch(e.request));
-    return;
-  }
-  e.respondWith(
-    caches.match(e.request).then((cached) => cached || fetch(e.request))
-  );
+  e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
 });

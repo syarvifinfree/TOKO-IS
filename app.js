@@ -334,7 +334,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function boot(){
-  if(!ACCESS_KEY){ document.getElementById('configOverlay').classList.remove('hidden'); return; }
+  // Key & Bin ID udah di-bake di data.js, langsung boot tanpa config screen
+  if(!ACCESS_KEY || !BIN_ITEMS || !BIN_TX){
+    document.getElementById('content').innerHTML = `<div class="empty-state"><div class="ic">⚠️</div><div class="t">Konfigurasi error</div><div class="s">BAKED_KEY tidak ditemukan di data.js</div></div>`;
+    return;
+  }
   const ok = await ensureBins();
   if(!ok){
     // coba pakai cache offline
