@@ -1,6 +1,9 @@
 // ===== CONFIG =====
 // Key & Bin ID di-bake langsung di sini. Repo HARUS dibikin Private di GitHub.
 const API = 'https://api.jsonbin.io/v3/b';
+const BAKED_KEY = '$2a$10$27kPGVF/AiprhGJmtAKEt.ha8En9/Vr6kKYSKaTv06LdqQS/sbkfe';
+const BAKED_BIN_ITEMS = '6a3b86beda38895dfef5ee96';
+const BAKED_BIN_TX = '6a3b86bef5f4af5e29277ae6';
 const PIN = '8888';
 const BAKED_KEY = '$2a$10$27kPGVF/AiprhGJmtAKEt.ha8En9/Vr6kKYSKaTv06LdqQS/sbkfe';
 const BAKED_BIN_ITEMS = '6a3b86beda38895dfef5ee96';
