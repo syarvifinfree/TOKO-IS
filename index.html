@@ -12,6 +12,12 @@ if(window.caches){ caches.keys().then(ks => ks.forEach(k => caches.delete(k))); 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#15120F">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Stok IS">
 <title>Stok IS</title>
 <style>
 :root{
@@ -1478,7 +1484,7 @@ function renderDashboard(c){
     ${warning.length ? `<div class="card"><div class="card-title">Mulai Menipis</div>${warning.map(itemRowHtml).join('')}</div>` : ''}
     ${(!danger.length && !warning.length) ? `<div class="card"><div class="empty-state"><div class="ic">✅</div><div class="t">Semua stok aman</div><div class="s">Gak ada item kritis atau menipis</div></div></div>` : ''}
     ${success.length ? `<div class="card"><div class="card-title">✅ Stok Aman (${success.length})</div>${success.sort((a,b)=>a.nama.localeCompare(b.nama)).map(itemRowHtml).join('')}</div>` : ''}
-    <div style="font-size:11px;color:var(--text2);text-align:center;padding:6px;">Versi v5 · sync: ${hasPending()?'⚠ BELUM tersimpan ke server (aman di perangkat ini)':'✓ tersimpan di server'}${lastSyncError?'<br><b style="color:var(--danger)">Alasan: '+escapeHtml(lastSyncError)+'</b>':''}
+    <div style="font-size:11px;color:var(--text2);text-align:center;padding:6px;">Versi v6 · sync: ${hasPending()?'⚠ BELUM tersimpan ke server (aman di perangkat ini)':'✓ tersimpan di server'}${lastSyncError?'<br><b style="color:var(--danger)">Alasan: '+escapeHtml(lastSyncError)+'</b>':''}
       <br><button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="testServer()">Tes koneksi server</button>
       <div id="testOut" style="margin-top:8px;text-align:left;white-space:pre-wrap;font-family:var(--mono);font-size:11px;"></div></div>
     <div style="height:20px"></div>
