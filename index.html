@@ -1171,6 +1171,20 @@ async function ensureBins(){
 
 async function loadAll(){
   setSyncDot('busy');
+  // FIX: kalau ada perubahan lokal yang belum tersimpan ke server (mis. opname barusan),
+  // JANGAN timpa dengan data server yang lama. Pakai data lokal, lalu kirim ulang ke server.
+  if(hasPending()){
+    const pi = localStorage.getItem(LS_CACHE_ITEMS), pt = localStorage.getItem(LS_CACHE_TX);
+    if(pi && pt){
+      try{
+        items = JSON.parse(pi); txLog = JSON.parse(pt);
+        migrateModel(); recompute();
+        await saveAll();
+        if(!hasPending()) showToast('Data terakhir berhasil disinkron ke server', 'success');
+        return true;
+      }catch(e){ console.error(e); }
+    }
+  }
   try{
     const [r1, r2] = await Promise.all([
       fetch(`${API}/${BIN_ITEMS}/latest`, {headers:{'X-Master-Key':ACCESS_KEY}}),
@@ -1206,8 +1220,17 @@ function scheduleSave(){
   saveTimer = setTimeout(saveAll, 400);
 }
 
+let _saving=false, _again=false;
 async function saveAll(){
   cacheLocal(); // selalu simpan lokal dulu — gak akan ilang
+  markPending(); // FIX: tandai belum-sync dari awal; dihapus hanya kalau server sukses
+  if(_saving){ _again=true; return; } // FIX: jangan kirim dobel barengan, kirim ulang setelah yang jalan selesai
+  _saving=true;
+  try{ do{ _again=false; await saveAllOnce(); }while(_again); }
+  finally{ _saving=false; }
+}
+async function saveAllOnce(){
+  cacheLocal();
   if(!navigator.onLine){ markPending(); setSyncDot('err'); showOffline(true); return; }
   setSyncDot('busy');
   try{
@@ -1215,16 +1238,24 @@ async function saveAll(){
       fetch(`${API}/${BIN_ITEMS}`, {method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':ACCESS_KEY},body: JSON.stringify({items})}),
       fetch(`${API}/${BIN_TX}`, {method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':ACCESS_KEY},body: JSON.stringify({tx: txLog})})
     ]);
-    if(!r1.ok || !r2.ok) throw new Error('Gagal simpan');
+    if(!r1.ok || !r2.ok){
+      const bad = !r1.ok ? r1 : r2; let why = '';
+      try{ why = (await bad.json()).message || ''; }catch(e){}
+      throw new Error((!r1.ok?'items':'tx')+' '+bad.status+(why?': '+why:''));
+    }
     clearPending();
     setSyncDot('ok'); showOffline(false);
   }catch(e){
     console.error(e);
     markPending();
     setSyncDot('err'); showOffline(true);
-    showToast('Belum tersimpan ke server, nanti otomatis sync', 'error');
+    showToast('Belum tersimpan ke server (data aman di HP). '+(e.message||''), 'error');
   }
 }
+
+// FIX: kalau halaman ditutup/refresh pas ada simpanan yang tertunda, amankan dulu ke HP
+window.addEventListener('pagehide', () => { if(saveTimer){ cacheLocal(); markPending(); } });
+window.addEventListener('beforeunload', () => { if(saveTimer){ cacheLocal(); markPending(); } });
 
 async function trySync(){
   if(hasPending() && ACCESS_KEY && BIN_ITEMS && BIN_TX){
