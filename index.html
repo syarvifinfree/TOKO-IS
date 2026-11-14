@@ -1466,6 +1466,7 @@ function renderDashboard(c){
     <div class="alert-card danger-tone">
       <div class="t">⚠️ ${incomplete.length} item belum ada modal satuan</div>
       <div class="s">Selama modal masih 0, barang yang laku dihitung Rp0 alias dikira gratis. Isi di tab Setup biar tagihan akurat.</div>
+      <button class="btn btn-primary btn-sm" style="margin-top:10px;" onclick="isiModalDariExcel()">Isi otomatis dari harga Excel</button>
     </div>` : ''}
 
     ${belumSO.length ? `
@@ -1484,7 +1485,7 @@ function renderDashboard(c){
     ${warning.length ? `<div class="card"><div class="card-title">Mulai Menipis</div>${warning.map(itemRowHtml).join('')}</div>` : ''}
     ${(!danger.length && !warning.length) ? `<div class="card"><div class="empty-state"><div class="ic">✅</div><div class="t">Semua stok aman</div><div class="s">Gak ada item kritis atau menipis</div></div></div>` : ''}
     ${success.length ? `<div class="card"><div class="card-title">✅ Stok Aman (${success.length})</div>${success.sort((a,b)=>a.nama.localeCompare(b.nama)).map(itemRowHtml).join('')}</div>` : ''}
-    <div style="font-size:11px;color:var(--text2);text-align:center;padding:6px;">Versi v7 · sync: ${hasPending()?'⚠ BELUM tersimpan ke server (aman di perangkat ini)':'✓ tersimpan di server'}${lastSyncError?'<br><b style="color:var(--danger)">Alasan: '+escapeHtml(lastSyncError)+'</b>':''}
+    <div style="font-size:11px;color:var(--text2);text-align:center;padding:6px;">Versi v8 · sync: ${hasPending()?'⚠ BELUM tersimpan ke server (aman di perangkat ini)':'✓ tersimpan di server'}${lastSyncError?'<br><b style="color:var(--danger)">Alasan: '+escapeHtml(lastSyncError)+'</b>':''}
       <br><button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="testServer()">Tes koneksi server</button>
       <div id="testOut" style="margin-top:8px;text-align:left;white-space:pre-wrap;font-family:var(--mono);font-size:11px;"></div></div>
     <div style="height:20px"></div>
@@ -1507,6 +1508,21 @@ async function testServer(){
     }catch(e){ txt += 'BACA ' + nm + ': GAGAL ' + e.message + '\n'; }
   }
   out.textContent = txt;
+}
+
+// ===== ISI MODAL KOSONG DARI EXCEL (harga satuan Update_Toko_IS.xlsx) =====
+const MODAL_EXCEL = {"ADEM SARI": 2291.67, "AQUA 1.5": 4250, "AQUA 600": 1916.67, "CHOCOLATOS COKLAT": 2100, "CHOCOLATOS MATCHA": 2100, "COFFEEMIX": 1550, "ENERGEN COKLAT": 2100, "ENERGEN KACANG HIJAU": 2100, "EXTRAJOSS": 1500, "KUKUBIMA": 1166, "FELOZ SULTAN": 20000, "GP/GUDANG GARAM": 26000, "GULA": 18500, "INDOCAFE CAPPUCCINO": 2400, "INDOMIE GORENG": 2900, "INDOMIE KARI AYAM": 2900, "KOPI GINSENG": 4800, "LASEGAR KALENG": 5750, "LUCKY STRIKE": 28500, "LUFFMAN": 9000, "M150": 4800, "MAMA LEMON": 12000, "MANCHESTER MERAH": 13500, "MANCHESTER PUTIH": 13000, "MARLONG 16": 30700, "MILKU": 2916, "MILO": 2000, "MINYAK GORENG": 18333.33, "NUTRIBOOST": 5833.33, "NUTRISARI MANGGA": 1275, "NUTRISARI JERUK NIPIS": 1275, "NUTRISARI JERUK PERAS": 1275, "POP MIE GORENG": 4333, "POP MIE KUAH": 4261, "POP MIE PEDES DOWER": 4833, "POP MIE PEDES GLEDEK": 4833, "SABUN EKONOMI": 2000, "SAMPOERNA BESAR": 35200, "SAMPOERNA HIJAU": 15400, "SAMPOERNA KECIL": 25300, "SAMSUE KUNING": 19600, "SAMSUE REFILL/HITAM": 21300, "SKY": 16000, "SURYA BESAR": 35000, "SURYA KECIL": 26000, "TEH PERENJAK": 7000, "TEH PUCUK": 2625, "TEH TARIK": 2200, "TORABIKA CAPUCCINO": 2200, "SURYA KALENG": 2160, "SOYA": 4583.33};
+function normNama(n){ return String(n||'').replace(/\s+/g,' ').trim().toUpperCase(); }
+async function isiModalDariExcel(){
+  const target = items.filter(it => !(it.modalSatuan > 0) && MODAL_EXCEL[normNama(it.nama)] > 0);
+  const sisa = items.filter(it => !(it.modalSatuan > 0) && !(MODAL_EXCEL[normNama(it.nama)] > 0));
+  if(!target.length){ showToast('Gak ada modal kosong yang bisa diisi dari Excel', 'error'); return; }
+  if(!confirm('Isi modal satuan '+target.length+' item yang masih kosong dari harga di Excel?\n\nItem yang modalnya sudah terisi TIDAK diubah.'+(sisa.length?'\n\nMasih kosong ('+sisa.length+'): '+sisa.map(i=>i.nama).join(', '):''))) return;
+  target.forEach(it => { it.modalAwal = MODAL_EXCEL[normNama(it.nama)]; });
+  recompute();
+  await saveAll();
+  showToast('Modal '+target.length+' item terisi dari Excel', 'success');
+  render();
 }
 
 // ===== DAFTAR ORDER (dari hasil opname / stok terkini) =====
