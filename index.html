@@ -1169,6 +1169,28 @@ async function ensureBins(){
   }
 }
 
+
+// ===== KOMPRESI (JSONBin gratis max 100KB/bin) =====
+async function gzipB64(str){
+  const buf = await new Response(new Blob([str]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();
+  const u = new Uint8Array(buf); let bin = '';
+  for(let i=0;i<u.length;i+=0x8000) bin += String.fromCharCode.apply(null, u.subarray(i,i+0x8000));
+  return btoa(bin);
+}
+async function gunzipB64(b64){
+  const bin = atob(b64); const u = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) u[i] = bin.charCodeAt(i);
+  return await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+}
+async function packTx(){
+  if(typeof CompressionStream === 'undefined') return JSON.stringify({tx: txLog});
+  return JSON.stringify({z: await gzipB64(JSON.stringify(txLog)), n: txLog.length, v: 1});
+}
+async function unpackTx(rec){
+  if(rec && rec.z) return JSON.parse(await gunzipB64(rec.z));
+  return (rec && rec.tx) || [];
+}
+
 async function loadAll(){
   setSyncDot('busy');
   // FIX: kalau ada perubahan lokal yang belum tersimpan ke server (mis. opname barusan),
@@ -1193,7 +1215,7 @@ async function loadAll(){
     if(!r1.ok || !r2.ok) throw new Error('Gagal load');
     const d1 = await r1.json(), d2 = await r2.json();
     items = d1.record.items || [];
-    txLog = d2.record.tx || [];
+    txLog = await unpackTx(d2.record);
     migrateModel();
     recompute();
     cacheLocal();
@@ -1220,7 +1242,7 @@ function scheduleSave(){
   saveTimer = setTimeout(saveAll, 400);
 }
 
-let _saving=false, _again=false;
+let _saving=false, _again=false, lastSyncError='';
 async function saveAll(){
   cacheLocal(); // selalu simpan lokal dulu — gak akan ilang
   markPending(); // FIX: tandai belum-sync dari awal; dihapus hanya kalau server sukses
@@ -1234,20 +1256,22 @@ async function saveAllOnce(){
   if(!navigator.onLine){ markPending(); setSyncDot('err'); showOffline(true); return; }
   setSyncDot('busy');
   try{
+    const txBody = await packTx();
+    if(txBody.length > 99000) throw new Error('data transaksi terlalu besar ('+Math.round(txBody.length/1024)+' KB) walau sudah dikompres');
     const [r1, r2] = await Promise.all([
       fetch(`${API}/${BIN_ITEMS}`, {method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':ACCESS_KEY},body: JSON.stringify({items})}),
-      fetch(`${API}/${BIN_TX}`, {method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':ACCESS_KEY},body: JSON.stringify({tx: txLog})})
+      fetch(`${API}/${BIN_TX}`, {method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':ACCESS_KEY},body: txBody})
     ]);
     if(!r1.ok || !r2.ok){
       const bad = !r1.ok ? r1 : r2; let why = '';
       try{ why = (await bad.json()).message || ''; }catch(e){}
       throw new Error((!r1.ok?'items':'tx')+' '+bad.status+(why?': '+why:''));
     }
-    clearPending();
+    clearPending(); lastSyncError='';
     setSyncDot('ok'); showOffline(false);
   }catch(e){
     console.error(e);
-    markPending();
+    markPending(); lastSyncError = (e && e.message) ? e.message : String(e);
     setSyncDot('err'); showOffline(true);
     showToast('Belum tersimpan ke server (data aman di HP). '+(e.message||''), 'error');
   }
@@ -1424,6 +1448,14 @@ function renderDashboard(c){
       <button class="btn btn-primary btn-sm" onclick="openPaymentDialog()">+ Catat Bayar</button>
     </div>
 
+    <div class="card" style="display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-size:12px;color:var(--text2);">Daftar order ke Toko IS</div>
+        <div style="font-size:13px;font-weight:600;">${orderItems().length} item perlu diorder</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="openOrderDialog()">📋 Buat Order</button>
+    </div>
+
     ${incomplete.length ? `
     <div class="alert-card danger-tone">
       <div class="t">⚠️ ${incomplete.length} item belum ada modal satuan</div>
@@ -1445,9 +1477,85 @@ function renderDashboard(c){
     ${danger.length ? `<div class="card"><div class="card-title">⚠️ Stok Kritis — Perlu Direstock</div>${danger.map(itemRowHtml).join('')}</div>` : ''}
     ${warning.length ? `<div class="card"><div class="card-title">Mulai Menipis</div>${warning.map(itemRowHtml).join('')}</div>` : ''}
     ${(!danger.length && !warning.length) ? `<div class="card"><div class="empty-state"><div class="ic">✅</div><div class="t">Semua stok aman</div><div class="s">Gak ada item kritis atau menipis</div></div></div>` : ''}
+    ${success.length ? `<div class="card"><div class="card-title">✅ Stok Aman (${success.length})</div>${success.sort((a,b)=>a.nama.localeCompare(b.nama)).map(itemRowHtml).join('')}</div>` : ''}
+    <div style="font-size:11px;color:var(--text2);text-align:center;padding:6px;">Versi v5 · sync: ${hasPending()?'⚠ BELUM tersimpan ke server (aman di perangkat ini)':'✓ tersimpan di server'}${lastSyncError?'<br><b style="color:var(--danger)">Alasan: '+escapeHtml(lastSyncError)+'</b>':''}
+      <br><button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="testServer()">Tes koneksi server</button>
+      <div id="testOut" style="margin-top:8px;text-align:left;white-space:pre-wrap;font-family:var(--mono);font-size:11px;"></div></div>
     <div style="height:20px"></div>
   `;
 }
+
+
+// ===== DIAGNOSA SERVER =====
+async function testServer(){
+  const out = document.getElementById('testOut'); if(!out) return;
+  out.textContent = 'Mengetes...';
+  let packed=''; try{ packed = ' (terkompres ' + ((await packTx()).length/1024).toFixed(1) + ' KB, batas 100)'; }catch(e){}
+  let txt = 'Ukuran data di HP: items ' + (JSON.stringify({items}).length/1024).toFixed(1) + ' KB, tx ' + (JSON.stringify({tx:txLog}).length/1024).toFixed(1) + ' KB\n';
+  txt += packed + '\nJumlah item ' + items.length + ', transaksi ' + txLog.length + '\n';
+  for(const [nm, bin] of [['items',BIN_ITEMS],['tx',BIN_TX]]){
+    try{
+      const r = await fetch(`${API}/${bin}/latest`, {headers:{'X-Master-Key':ACCESS_KEY}});
+      let body=''; try{ body = r.ok ? '' : (await r.text()).slice(0,200);}catch(e){}
+      txt += 'BACA ' + nm + ': ' + r.status + (body? ' ' + body : ' OK') + '\n';
+    }catch(e){ txt += 'BACA ' + nm + ': GAGAL ' + e.message + '\n'; }
+  }
+  out.textContent = txt;
+}
+
+// ===== DAFTAR ORDER (dari hasil opname / stok terkini) =====
+let orderQty = {}; // override qty manual per item (id -> string)
+function orderItems(){
+  return items.map(it => ({it, auto: calcRefill(it, it.stokSaatIni)})).filter(x => x.auto > 0)
+    .sort((a,b)=> (a.it.kategori||'').localeCompare(b.it.kategori||'') || a.it.nama.localeCompare(b.it.nama));
+}
+function orderQtyOf(x){
+  const v = orderQty[x.it.id];
+  if(v === undefined) return x.auto;
+  const n = parseFloat(v); return isNaN(n) ? 0 : n;
+}
+function setOrderQty(id, v){ orderQty[id] = v; refreshOrderText(); }
+function orderText(){
+  const rows = orderItems().map(x => ({x, q: orderQtyOf(x)})).filter(r => r.q > 0);
+  if(!rows.length) return '';
+  let out = 'Order Kopi Baiyoo - ' + fmtDate(todayISO()) + '\n', cat = null;
+  rows.forEach(r => {
+    if(r.x.it.kategori !== cat){ cat = r.x.it.kategori; out += '\n' + cat + '\n'; }
+    out += '- ' + r.x.it.nama + ': ' + fmtNum(r.q) + '\n';
+  });
+  return out.trim();
+}
+function refreshOrderText(){
+  const el = document.getElementById('orderTextBox'); if(el) el.value = orderText();
+}
+function openOrderDialog(){
+  const list = orderItems();
+  const host = document.getElementById('modalHost');
+  host.innerHTML = `
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+      <div class="dialog" style="max-height:88vh;overflow:auto;">
+        <h3>Daftar Order</h3>
+        <div class="dsub">Otomatis dari stok terkini (hasil opname) sampai stok ideal. Qty bisa diubah.</div>
+        ${list.length ? list.map(x => `
+          <div class="item-row" style="display:flex;align-items:center;gap:8px;justify-content:space-between;">
+            <div style="flex:1;min-width:0;font-size:13px;">${escapeHtml(x.it.nama)}<div style="font-size:11px;color:var(--text2);">stok ${fmtNum(x.it.stokSaatIni)} / ideal ${fmtNum(x.it.stokIdle)}</div></div>
+            <input type="number" inputmode="numeric" style="width:78px;" value="${orderQtyOf(x)}" oninput="setOrderQty('${x.it.id}',this.value)"/>
+          </div>`).join('') : `<div class="empty-state"><div class="ic">✅</div><div class="t">Gak ada yang perlu diorder</div></div>`}
+        ${list.length ? `<div class="field" style="margin-top:14px;"><label>Teks order (siap kirim)</label><textarea id="orderTextBox" rows="8" style="width:100%;font-family:var(--mono);font-size:12px;" readonly>${escapeHtml(orderText())}</textarea></div>` : ''}
+        <div class="dialog-actions">
+          <button class="btn btn-secondary" onclick="closeModal()">Tutup</button>
+          ${list.length ? `<button class="btn btn-secondary" onclick="copyOrder()">Salin</button><button class="btn btn-primary" onclick="waOrder()">WhatsApp</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+}
+function copyOrder(){
+  const t = orderText();
+  const done = () => showToast('Daftar order disalin', 'success');
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(done, () => { const b=document.getElementById('orderTextBox'); b.select(); document.execCommand('copy'); done(); }); }
+  else { const b=document.getElementById('orderTextBox'); b.select(); document.execCommand('copy'); done(); }
+}
+function waOrder(){ window.open('https://wa.me/?text=' + encodeURIComponent(orderText()), '_blank'); }
 
 // ===== PEMBAYARAN =====
 function openPaymentDialog(){
